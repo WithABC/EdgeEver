@@ -1641,7 +1641,7 @@ export const WorkspaceApp = ({
     setNotebookDeleteConfirmation(notebook);
   };
 
-  const handleImportScreenshot = useCallback(async (payload: { captureId?: string; name: string; type: string; title?: string; bytes: Uint8Array }) => {
+  const handleImportScreenshot = useCallback(async (payload: { name: string; type: string; title?: string; bytes: Uint8Array }) => {
     const importKey = screenshotImportDedupeKey(payload);
     if (!screenshotImportGate.tryBegin(importKey)) return;
 
@@ -1649,13 +1649,13 @@ export const WorkspaceApp = ({
       ? selectedNotebookId
       : defaultMemoNotebookId;
     if (!notebookId) {
-      screenshotImportGate.fail();
+      screenshotImportGate.fail(importKey);
       return;
     }
 
     const file = screenshotFileFromImportPayload(payload);
     if (file.size === 0) {
-      screenshotImportGate.fail();
+      screenshotImportGate.fail(importKey);
       setAppNoticeDialog({
         title: t("memoList.importScreenshotFailedTitle"),
         description: t("memoList.importScreenshotEmpty"),
@@ -1698,7 +1698,7 @@ export const WorkspaceApp = ({
       revealCreatedMemo(memo);
       screenshotImportGate.finish(importKey);
     } catch {
-      screenshotImportGate.fail();
+      screenshotImportGate.fail(importKey);
       creatingMemoSelectionRef.current = false;
       setAppNoticeDialog({
         title: t("memoList.importScreenshotFailedTitle"),
@@ -1706,9 +1706,6 @@ export const WorkspaceApp = ({
       });
     }
   }, [defaultMemoNotebookId, imageCompressionEnabled, localDataScope, memoView, notebooks, repository, selectedNotebookId, t]);
-
-  const handleImportScreenshotRef = useRef(handleImportScreenshot);
-  handleImportScreenshotRef.current = handleImportScreenshot;
 
   const handleCreateMemo = (kind?: DiagramKind) => {
     const targetNotebookId = createMemoNotebookId;
@@ -2366,14 +2363,14 @@ export const WorkspaceApp = ({
       createMemoMutation.mutate({ notebookId, title, contentMarkdown: payload.content, tags: [] });
     });
     const removeScreenshotListener = bridge.onImportScreenshot?.((payload) => {
-      void handleImportScreenshotRef.current(payload);
+      void handleImportScreenshot(payload);
     }) ?? (() => {});
     return () => {
       removeCommandListener();
       removeMarkdownListener();
       removeScreenshotListener();
     };
-  }, [createMemoMutation, defaultMemoNotebookId, handleCreateMemo, handleCreateNotebook, handleGlobalSearch, notebooks, selectedNotebookId, toggleDesktopFocusMode]);
+  }, [createMemoMutation, defaultMemoNotebookId, handleCreateMemo, handleCreateNotebook, handleGlobalSearch, handleImportScreenshot, notebooks, selectedNotebookId, toggleDesktopFocusMode]);
 
   const handleWorkspaceBackRequest = useCallback(() => {
     if (appNoticeDialog) {
